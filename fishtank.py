@@ -189,4 +189,4 @@ def set_dim():
     dim_Cyclesecs = float(dim_Ontimesecs)/(PWM_max - PWM_min)
     redirect("/")
 
-run(host="localhost", port=6767, debug=True)
+run(host="0.0.0.0", port=6767, debug=True)
