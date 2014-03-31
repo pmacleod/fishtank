@@ -1,19 +1,28 @@
-from bottle import route, run, template, redirect, request, post
+USE_FIRMATA = True
+USE_NANPY = False
 
+from bottle import route, run, template, redirect, request, post, static_file
 import math
+import sys
 from apscheduler.scheduler import Scheduler
-#from nanpy import Arduino
+if USE_FIRMATA:
+    import pyfirmata
+    board = pyfirmata.ArduinoMega("/dev/ttyACM0")
+elif USE_NANPY:
+    from nanpy import Arduino
+    from nanpy.arduinotree import ArduinoTree
+
 import datetime
-#import nanpy
+import nanpy
 import sys
 import time
 from time import sleep
 import logging;logging.basicConfig()
-#from nanpy.arduinotree import ArduinoTree
 logging.basicConfig(level=logging.INFO,format='%(asctime)s : %(name)s : %(levelname)s : %(module)s.%(funcName)s(%(lineno)d) : %(thread)d %(threadName)s: %(message)s')
+
 ##PWM TIMER SHIT
 #sets all pins to 120hz
-"""def set_timer(timer, prescale):
+def set_timer(timer, prescale):
     a= ArduinoTree()
     mask = 7
     register = a.register.get("TCCR" + str(timer) + "B")
@@ -25,33 +34,43 @@ def set_timers():
     set_timer(3, prescale)
     set_timer(4, prescale)
     set_timer(5, prescale)
-"""
-##
-##Pin assignments!    
-boardPin = 13
-pwmPin1 = 2
-pwmPin2 = 3
-pwmPin3 = 4
-pwmPin4 = 5
-pwmPin5 = 6
-pwmPin6 = 7
-pwmPin7 = 8
-pwmPin8 = 9
-"""
-Arduino.pinMode(boardPin, Arduino.OUTPUT)
-Arduino.pinMode(pwmPin1, Arduino.OUTPUT)
-Arduino.pinMode(pwmPin2, Arduino.OUTPUT)
-Arduino.pinMode(pwmPin3, Arduino.OUTPUT)
-Arduino.pinMode(pwmPin4, Arduino.OUTPUT)
-Arduino.pinMode(pwmPin5, Arduino.OUTPUT)
-Arduino.pinMode(pwmPin6, Arduino.OUTPUT)
-Arduino.pinMode(pwmPin7, Arduino.OUTPUT)
-Arduino.pinMode(pwmPin8, Arduino.OUTPUT)
 
 ##
- 
-set_timers()
-"""
+##Pin assignments!    
+if USE_FIRMATA:
+    boardPin = board.get_pin("d:13:p")
+    pwmPin1 = board.get_pin("d:2:p")
+    pwmPin2 = board.get_pin("d:3:p")
+    pwmPin3 = board.get_pin("d:4:p")
+    pwmPin4 = board.get_pin("d:5:p")
+    pwmPin5 = board.get_pin("d:6:p")
+    pwmPin6 = board.get_pin("d:7:p")
+    pwmPin7 = board.get_pin("d:8:p")
+    pwmPin8 = board.get_pin("d:9:p")
+else:
+    boardPin = 13
+    pwmPin1 = 2
+    pwmPin2 = 3
+    pwmPin3 = 4
+    pwmPin4 = 5
+    pwmPin5 = 6
+    pwmPin6 = 7
+    pwmPin7 = 8
+    pwmPin8 = 9
+
+if USE_NANPY:
+    Arduino.pinMode(boardPin, Arduino.OUTPUT)
+    Arduino.pinMode(pwmPin1, Arduino.OUTPUT)
+    Arduino.pinMode(pwmPin2, Arduino.OUTPUT)
+    Arduino.pinMode(pwmPin3, Arduino.OUTPUT)
+    Arduino.pinMode(pwmPin4, Arduino.OUTPUT)
+    Arduino.pinMode(pwmPin5, Arduino.OUTPUT)
+    Arduino.pinMode(pwmPin6, Arduino.OUTPUT)
+    Arduino.pinMode(pwmPin7, Arduino.OUTPUT)
+    Arduino.pinMode(pwmPin8, Arduino.OUTPUT)
+    # my version of firmata sets the pwm in the firmware
+    set_timers()
+
 targetpin = boardPin
 PWM_Levelout = 0
 outpin = 0
@@ -63,9 +82,12 @@ def arduinoPinwriteout(outpin, PWM_Levelout):
     targetpin = outpin
     global writeVAR
     writeVAR = PWM_Levelout
-#    if outpin == boardPin:
-#        print writeVAR
-    #Arduino.analogWrite(targetpin, writeVAR)
+    if outpin == boardPin:
+        print writeVAR
+    if USE_FIRMATA:
+        outpin.write(writeVAR / 255.0)
+    elif USE_NANPY:
+        Arduino.analogWrite(targetpin, writeVAR)
 
 PWM_min = 100
 PWM_max = 255
@@ -188,5 +210,9 @@ def set_dim():
     dim_Ontimesecs = int(request.forms.get("dim_time"))
     dim_Cyclesecs = float(dim_Ontimesecs)/(PWM_max - PWM_min)
     redirect("/")
+
+@route('/static/:path#.+#', name='static')
+def static(path):
+    return static_file(path, root='static')
 
 run(host="0.0.0.0", port=6767, debug=True)
